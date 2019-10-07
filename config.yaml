@@ -1,0 +1,31 @@
+settings:
+  configName: "volvoclub.ee"
+  botCount: 10
+  unbanProxiesAfter: 20
+  proxyMaxRetries: 3 
+  useProxy: true
+stages:
+  globalHeaders:
+    - key: "Accept"
+      value: "*/*"
+    - key: "Cache-Control"
+      value: "no-cache"
+  preLogin:
+    - url: "https://foorum.volvoclub.ee/ucp.php?mode=login"
+      method: "GET"
+      variablesToSave:
+        - name: "<sid>"
+          leftDelimiter: "name=\"sid\" value=\""
+          rightDelimiter: "\""
+  login:
+    url: "https://foorum.volvoclub.ee/ucp.php?mode=login"
+    method: "POST"
+    body: "username=<username>&password=<password>&sid=<sid>&login=Logi+sisse"
+    headers:
+      - key: "Content-Type"
+        value: "application/x-www-form-urlencoded"
+    keywords:
+      success:
+        text: ["Privaatsõnumid"]
+      failure:
+        text: ["Sisestasid vale kasutajanime"]
