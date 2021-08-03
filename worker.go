@@ -2,49 +2,51 @@ package rbrute
 
 import (
 	"context"
+	"github.com/rislah/rBrute/channels"
 	"sync"
 
-	"github.com/rislah/rBrute/checker"
-	"github.com/rislah/rBrute/combolist"
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"
-	"github.com/rislah/rBrute/proxy"
 	"github.com/rislah/rBrute/request"
-	"github.com/rislah/rBrute/variables"
+	"github.com/rs/xid"
 )
 
 type Worker struct {
 	ctx         context.Context
+	status      int
 	logger      *logger.Logger
-	credsStream <-chan *combolist.Credentials
-	proxyStream <-chan *proxy.Proxy
-	proxyGen    *proxy.Generator
+	credsStream <-chan *channels.Credentials
+	proxyStream <-chan *channels.Proxy
+	proxyGen    *channels.ProxyFO
 	stages      config.Stages
 	useProxy    bool
+	maxRetryCount int
 	mutex       sync.RWMutex
 }
 
 func NewWorker(
 	ctx context.Context,
-	credsStream <-chan *combolist.Credentials,
-	proxyStream <-chan *proxy.Proxy,
+	credsStream <-chan *channels.Credentials,
+	proxyStream <-chan *channels.Proxy,
 	log *logger.Logger,
 	stages config.Stages,
 	useProxy bool,
-	proxyGen *proxy.Generator,
+	proxyGen *channels.ProxyFO,
+	maxRetryCount int,
 ) *Worker {
 	return &Worker{
-		ctx:         ctx,
-		credsStream: credsStream,
-		proxyStream: proxyStream,
-		proxyGen:    proxyGen,
-		logger:      log,
-		stages:      stages,
-		useProxy:    useProxy,
+		ctx:           ctx,
+		credsStream:   credsStream,
+		proxyStream:   proxyStream,
+		logger:        log,
+		stages:        stages,
+		maxRetryCount: maxRetryCount,
+		useProxy:      useProxy,
+		proxyGen:      proxyGen,
 	}
 }
 
-func (w *Worker) start(wg *sync.WaitGroup) {
+func (w *Worker) Start(wg *sync.WaitGroup) {
 	defer wg.Done()
 	client := request.BuildClient()
 	for {
@@ -59,9 +61,10 @@ func (w *Worker) start(wg *sync.WaitGroup) {
 			loggerContext := logger.NewLoggerContext()
 			loggerContext.AddCredentials(creds)
 
-			vars := variables.NewVariables(loggerContext)
+			name := xid.New().String()
+			vars := request.NewVariables(loggerContext)
 			rb := request.NewBuilder(loggerContext, &w.stages, &vars)
-			rr := request.NewRunner(loggerContext, &vars, w.proxyStream, creds, w.useProxy, client)
+			rr := request.NewRunner(name, w.logger, loggerContext, &vars, w.proxyStream, creds, w.useProxy, client, w.maxRetryCount)
 
 			preloginRequests := rb.BuildPreLoginRequests()
 			if !rr.ProcessPreLoginRequests(preloginRequests) {
@@ -69,7 +72,7 @@ func (w *Worker) start(wg *sync.WaitGroup) {
 				continue
 			}
 
-			keywordsChecker := checker.NewKeywords(loggerContext, &w.stages.Login.Keywords)
+			keywordsChecker := request.NewKeywords(loggerContext, &w.stages.Login.Keywords)
 			loginRequest := rb.BuildLoginRequest()
 			msg, ok := rr.ProcessLoginRequest(loginRequest, &keywordsChecker)
 			if !ok {

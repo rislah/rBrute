@@ -1,6 +1,8 @@
 package request
 
 import (
+	"fmt"
+	"github.com/rislah/rBrute/channels"
 	"io"
 	"io/ioutil"
 	"log"
@@ -9,40 +11,40 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rislah/rBrute/checker"
-	"github.com/rislah/rBrute/combolist"
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"
-	"github.com/rislah/rBrute/proxy"
-	"github.com/rislah/rBrute/variables"
 	"golang.org/x/net/publicsuffix"
 	"h12.io/socks"
 )
 
 type Runner struct {
-	lx               *logger.LoggerContext
-	proxyStream      <-chan *proxy.Proxy
-	variables        *variables.Variables
+	loggerContext    *logger.LoggerContext
+	logger           *logger.Logger
+	proxyStream      <-chan *channels.Proxy
+	inUseCredentials *channels.Credentials
+	variables        *Variables
 	useProxy         bool
-	inUseCredentials *combolist.Credentials
 	retrier          retrier
-
-	mutex       sync.RWMutex
-	inUseProxy  *proxy.Proxy
-	inUseClient *http.Client
+	name             string
+	inUseProxy       *channels.Proxy
+	inUseClient      *http.Client
+	mutex            sync.RWMutex
 }
 
-func NewRunner(lx *logger.LoggerContext, v *variables.Variables, ps <-chan *proxy.Proxy, iuc *combolist.Credentials, up bool, client *http.Client) *Runner {
+func NewRunner(name string, l *logger.Logger, lx *logger.LoggerContext, v *Variables, ps <-chan *channels.Proxy, iuc *channels.Credentials, up bool,
+	client *http.Client, maxRetryCount int) *Runner {
 	runner := &Runner{
-		lx:               lx,
-		retrier:          newRetrier(3),
+		name:             name,
+		logger:           l,
+		loggerContext:    lx,
+		retrier:          newRetrier(maxRetryCount),
 		proxyStream:      ps,
 		variables:        v,
 		inUseCredentials: iuc,
 		useProxy:         up,
 		inUseClient:      client,
 	}
-	runner.setupClient(<-ps)
+	runner.setupClient()
 	return runner
 }
 
@@ -63,9 +65,9 @@ func BuildClient() *http.Client {
 	return client
 }
 
-func (r *Runner) setupClient(proxy *proxy.Proxy) {
-	if r.useProxy && proxy != nil {
-		r.setInUseProxy(proxy)
+func (r *Runner) setupClient() {
+	if r.useProxy {
+		r.setInUseProxy(<-r.proxyStream)
 		r.setClientProxy()
 	} else {
 		r.clearProxyFromClient()
@@ -78,7 +80,7 @@ func (r *Runner) clearProxyFromClient() {
 	r.inUseClient.Transport = nil
 }
 
-func (r *Runner) setInUseProxy(proxy *proxy.Proxy) {
+func (r *Runner) setInUseProxy(proxy *channels.Proxy) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	r.inUseProxy = proxy
@@ -92,13 +94,13 @@ func (r *Runner) setClientProxy() {
 	r.inUseClient.Transport = tr
 }
 
-func (r *Runner) ProcessPreLoginRequests(requests []map[*config.PreLoginStage]*http.Request) bool {
-	if requests == nil {
+func (r *Runner) ProcessPreLoginRequests(stageRequests []map[*config.PreLoginStage]*http.Request) bool {
+	if stageRequests == nil {
 		return true
 	}
 
-	for _, elem := range requests {
-		for cfg, req := range elem {
+	for _, v := range stageRequests {
+		for cfg, req := range v {
 			res := r.sendRequest(req)
 			if res == nil {
 				return false
@@ -110,6 +112,7 @@ func (r *Runner) ProcessPreLoginRequests(requests []map[*config.PreLoginStage]*h
 			}
 
 			if !r.variables.FindAndSave(strRes, cfg.VariablesToSave) {
+				r.logger.PrintStatusChange(r.name, r.inUseCredentials, r.inUseProxy, logger.FAILED)
 				return false
 			}
 		}
@@ -117,17 +120,17 @@ func (r *Runner) ProcessPreLoginRequests(requests []map[*config.PreLoginStage]*h
 	return true
 }
 
-func (r *Runner) GetInUseProxy() *proxy.Proxy {
+func (r *Runner) GetInUseProxy() *channels.Proxy {
 	return r.inUseProxy
 }
 
-func (r *Runner) ProcessLoginRequest(request *http.Request, kc *checker.Keywords) (string, bool) {
+func (r *Runner) ProcessLoginRequest(request *http.Request, kc *Keywords) (string, bool) {
 	response := r.sendRequest(request)
 	resStr, err := responseToString(response)
 	if err != nil {
 		log.Fatal(err)
 	}
-	r.lx.AddResponseBody(resStr)
+	r.loggerContext.AddResponseBody(resStr)
 	return kc.Check(resStr)
 }
 
@@ -136,6 +139,9 @@ func (r *Runner) sendRequest(request *http.Request) *http.Response {
 	err := r.retrier.retry(func(attempt int) error {
 		var err error
 		res, err = r.inUseClient.Do(request)
+		if attempt >= 1 {
+			r.logger.PrintStatusChange(r.name, r.inUseCredentials, r.inUseProxy, logger.RETRYING, fmt.Sprintf("TRY %d/%d", attempt, r.retrier.maxRetryCount))
+		}
 		return err
 	})
 	if err != nil {
@@ -143,6 +149,7 @@ func (r *Runner) sendRequest(request *http.Request) *http.Response {
 			r.inUseProxy.ChangeStatusToBanned()
 			r.setInUseProxy(<-r.proxyStream)
 			r.setClientProxy()
+			return r.sendRequest(request)
 		}
 	}
 	return res

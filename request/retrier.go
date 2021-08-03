@@ -11,9 +11,7 @@ func newRetrier(maxRetryCount int) retrier {
 type retryFn func(attempt int) (err error)
 
 func (r retrier) retry(fn retryFn) error {
-	var (
-		err error
-	)
+	var err error
 	attempt := 0
 	for {
 		if r.maxRetryCount == attempt {

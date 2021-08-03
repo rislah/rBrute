@@ -1,9 +1,12 @@
 settings:
   configName: "volvoclub.ee"
-  botCount: 10
+  botCount: 2
   unbanProxiesAfter: 20
-  proxyMaxRetries: 3 
+  proxyMaxRetries: 3
   useProxy: true
+  resultsPath: "/home/risto/code/go/src/github.com/rislah/rBrute/results"
+  proxyPath: "/home/risto/code/go/src/github.com/rislah/rBrute/out.txt"
+  credentialsPath: "/home/risto/code/go/src/github.com/rislah/rBrute/creds.txt"
 stages:
   globalHeaders:
     - key: "Accept"
@@ -26,6 +29,6 @@ stages:
         value: "application/x-www-form-urlencoded"
     keywords:
       success:
-        text: ["Privaatsõnumid"]
+        text: [ "Privaatsõnumid" ]
       failure:
-        text: ["Sisestasid vale kasutajanime"]
+        text: [ "Sisestasid vale kasutajanime" ]

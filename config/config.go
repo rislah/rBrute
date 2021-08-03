@@ -17,6 +17,9 @@ type Settings struct {
 	ProxyMaxRetries   int    `yaml:"proxyMaxRetries"`
 	ConfigName        string `yaml:"configName"`
 	UseProxy          bool   `yaml:"useProxy"`
+	ProxyPath         string `yaml:"proxyPath"`
+	CredentialsPath   string `yaml:"credentialsPath"`
+	ResultsPath       string `yaml:"resultsPath"`
 }
 
 type Stage struct {

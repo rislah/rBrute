@@ -1,9 +1,8 @@
 package logger
 
 import (
+	"github.com/rislah/rBrute/channels"
 	"net/http"
-
-	"github.com/rislah/rBrute/combolist"
 )
 
 type LoggerContext struct {
@@ -13,7 +12,7 @@ type LoggerContext struct {
 	foundVariables   map[string]string
 	keywords         []string
 	responseBody     string
-	credentials      *combolist.Credentials
+	credentials      *channels.Credentials
 }
 
 func NewLoggerContext() *LoggerContext {
@@ -22,11 +21,11 @@ func NewLoggerContext() *LoggerContext {
 	}
 }
 
-func (l *LoggerContext) GetCredentials() *combolist.Credentials {
+func (l *LoggerContext) GetCredentials() *channels.Credentials {
 	return l.credentials
 }
 
-func (l *LoggerContext) AddCredentials(creds *combolist.Credentials) {
+func (l *LoggerContext) AddCredentials(creds *channels.Credentials) {
 	l.credentials = creds
 }
 

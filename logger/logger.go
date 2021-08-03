@@ -3,21 +3,41 @@ package logger
 import (
 	"context"
 	"fmt"
+	"github.com/logrusorgru/aurora"
+	"github.com/rislah/rBrute/channels"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/logrusorgru/aurora"
-	"github.com/rislah/rBrute/combolist"
 )
 
 type Logger struct {
 	logger                  *log.Logger
 	resultsDir              string
 	currentConfigResultsDir string
+}
+
+type Status int
+
+const (
+	RETRYING Status = iota
+	SUCCESS
+	FAILED
+)
+
+func (s Status) ToString() string {
+	switch s {
+	case SUCCESS:
+		return "SUCCESS"
+	case FAILED:
+		return "FAILED"
+	case RETRYING:
+		return "RETRYING"
+	default:
+		return "PROCESSING"
+	}
 }
 
 func NewLogger(resultsDir string) Logger {
@@ -28,7 +48,7 @@ func NewLogger(resultsDir string) Logger {
 	}
 }
 
-func (l *Logger) PrintSuccessMessage(credentials *combolist.Credentials, keywordsCheckResult string) {
+func (l *Logger) PrintSuccessMessage(credentials *channels.Credentials, keywordsCheckResult string) {
 	l.logger.Println(fmt.Sprintf(
 		"[%s] %s:%s - %s",
 		aurora.BrightGreen("SUCCESS"),
@@ -38,7 +58,20 @@ func (l *Logger) PrintSuccessMessage(credentials *combolist.Credentials, keyword
 	))
 }
 
-func (l *Logger) PrintFailedMessage(credentials *combolist.Credentials) {
+func (l *Logger) PrintStatusChange(name string, credentials *channels.Credentials, proxy *channels.Proxy, s Status, misc ...string) {
+	l.logger.Println(fmt.Sprintf(
+		"[%s] [BOT %s] [PROXY %s] [CREDENTIALS %s:%s] - %s %s",
+		aurora.BrightBlack("STATUS CHANGE"),
+		name,
+		proxy.GetAddr(),
+		credentials.Username,
+		credentials.Password,
+		s.ToString(),
+		misc,
+	))
+}
+
+func (l *Logger) PrintFailedMessage(credentials *channels.Credentials) {
 	l.logger.Println(fmt.Sprintf(
 		"[%s] %s:%s",
 		aurora.BrightRed("FAILED"),

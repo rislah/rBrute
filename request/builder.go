@@ -7,20 +7,19 @@ import (
 
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"
-	"github.com/rislah/rBrute/variables"
 )
 
 type builder struct {
-	lx        *logger.LoggerContext
-	stages    *config.Stages
-	variables *variables.Variables
+	loggerContext *logger.LoggerContext
+	stages        *config.Stages
+	variables     *Variables
 }
 
-func NewBuilder(lx *logger.LoggerContext, stages *config.Stages, v *variables.Variables) *builder {
+func NewBuilder(lx *logger.LoggerContext, stages *config.Stages, v *Variables) *builder {
 	return &builder{
-		lx:        lx,
-		stages:    stages,
-		variables: v,
+		loggerContext: lx,
+		stages:        stages,
+		variables:     v,
 	}
 }
 
@@ -30,16 +29,16 @@ func (b *builder) BuildPreLoginRequests() []map[*config.PreLoginStage]*http.Requ
 	}
 
 	requests := []map[*config.PreLoginStage]*http.Request{}
-	for _, stage := range b.stages.PreLogin {
-		request, err := b.build(stage.Method, stage.Headers, stage.URL, stage.Body)
+	for _, preLoginStage := range b.stages.PreLogin {
+		request, err := b.buildRequest(preLoginStage.Method, preLoginStage.Headers, preLoginStage.URL, preLoginStage.Body)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		b.lx.AddPreLoginRequest(request)
+		b.loggerContext.AddPreLoginRequest(request)
 
 		elem := make(map[*config.PreLoginStage]*http.Request)
-		elem[&stage] = request
+		elem[&preLoginStage] = request
 
 		requests = append(requests, elem)
 	}
@@ -47,15 +46,15 @@ func (b *builder) BuildPreLoginRequests() []map[*config.PreLoginStage]*http.Requ
 }
 
 func (b *builder) BuildLoginRequest() *http.Request {
-	request, err := b.build(b.stages.Login.Method, b.stages.Login.Headers, b.stages.Login.URL, b.stages.Login.Body)
-	b.lx.AddLoginRequest(request)
+	request, err := b.buildRequest(b.stages.Login.Method, b.stages.Login.Headers, b.stages.Login.URL, b.stages.Login.Body)
+	b.loggerContext.AddLoginRequest(request)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return request
 }
 
-func (b *builder) build(method config.Method, headers []config.Header, url, body string) (*http.Request, error) {
+func (b *builder) buildRequest(method config.Method, headers []config.Header, url, body string) (*http.Request, error) {
 	request, err := http.NewRequest(method.ToString(), b.variables.Replace(url), bytes.NewBuffer([]byte(b.variables.Replace(body))))
 	if err != nil {
 		return nil, err
