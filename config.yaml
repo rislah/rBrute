@@ -4,9 +4,9 @@ settings:
   unbanProxiesAfter: 20
   proxyMaxRetries: 3
   useProxy: true
-  resultsPath: "/home/risto/code/go/src/github.com/rislah/rBrute/results"
-  proxyPath: "/home/risto/code/go/src/github.com/rislah/rBrute/out.txt"
-  credentialsPath: "/home/risto/code/go/src/github.com/rislah/rBrute/creds.txt"
+  resultsPath: "/home/risto/rBrute/results"
+  proxyPath: "/home/risto/rBrute/out.txt"
+  credentialsPath: "/home/risto/rBrute/creds.txt"
 stages:
   globalHeaders:
     - key: "Accept"

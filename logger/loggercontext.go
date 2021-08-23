@@ -1,8 +1,9 @@
 package logger
 
 import (
-	"github.com/rislah/rBrute/channels"
 	"net/http"
+
+	"github.com/rislah/rBrute/channels"
 )
 
 type LoggerContext struct {

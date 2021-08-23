@@ -3,14 +3,15 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/logrusorgru/aurora"
-	"github.com/rislah/rBrute/channels"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/logrusorgru/aurora"
+	"github.com/rislah/rBrute/channels"
 )
 
 type Logger struct {

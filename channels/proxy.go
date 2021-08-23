@@ -20,20 +20,28 @@ const (
 type Proxy struct {
 	addr              string
 	totalSuccessCount int32
-	mutex             sync.RWMutex
 	status            ProxyStatus
+	mutex             sync.RWMutex
+}
+
+func (p *Proxy) GetSuccessCount() int32 {
+	return atomic.LoadInt32(&p.totalSuccessCount)
 }
 
 func (p *Proxy) IncrementTotalSuccessCount() {
 	atomic.AddInt32(&p.totalSuccessCount, 1)
 }
 
-func (p *Proxy) ChangeStatusToAvailable() {
-	p.changeStatus(AVAILABLE)
+func (p *Proxy) DecrementTotalSuccessCount() {
+	atomic.AddInt32(&p.totalSuccessCount, ^int32(0))
 }
 
-func (p *Proxy) GetAddr() string {
-	return p.addr
+func (p *Proxy) ResetTotalSuccessCount() {
+	atomic.StoreInt32(&p.totalSuccessCount, 0)
+}
+
+func (p *Proxy) ChangeStatusToAvailable() {
+	p.changeStatus(AVAILABLE)
 }
 
 func (p *Proxy) ChangeStatusToBusy() {
@@ -42,6 +50,10 @@ func (p *Proxy) ChangeStatusToBusy() {
 
 func (p *Proxy) ChangeStatusToBanned() {
 	p.changeStatus(BANNED)
+}
+
+func (p *Proxy) GetAddr() string {
+	return p.addr
 }
 
 func (p *Proxy) changeStatus(status ProxyStatus) {
@@ -53,10 +65,7 @@ func (p *Proxy) changeStatus(status ProxyStatus) {
 func (p *Proxy) IsStatus(status ProxyStatus) bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	if p.status == status {
-		return true
-	}
-	return false
+	return p.status == status
 }
 
 type ProxyFO struct {
@@ -68,8 +77,8 @@ type ProxyFO struct {
 	mutex           sync.RWMutex
 }
 
-func NewProxyFO(ch chan *Proxy, filePath string, threadCount int, unbanAfterTries int) ProxyFO {
-	return ProxyFO{channel: ch, filePath: filePath, threadCount: threadCount, unbanAfterTries: unbanAfterTries}
+func NewProxyFO(ch chan *Proxy, filePath string, threadCount int, unbanAfterTries int) *ProxyFO {
+	return &ProxyFO{channel: ch, filePath: filePath, threadCount: threadCount, unbanAfterTries: unbanAfterTries}
 }
 
 func (pfo *ProxyFO) Len() int {
@@ -106,6 +115,11 @@ func (pfo *ProxyFO) Produce(ctx context.Context) {
 	for _, line := range lines {
 		pr = append(pr, &Proxy{addr: line})
 	}
+
+	if len(pr) == 0 {
+		return
+	}
+
 	pfo.proxies = pr
 
 	var counter int
@@ -129,9 +143,7 @@ func (pfo *ProxyFO) Produce(ctx context.Context) {
 		counter = 0
 
 		for _, nproxy := range nproxies {
-			select {
-			case pfo.channel <- nproxy:
-			}
+			pfo.channel <- nproxy
 		}
 	}
 }
@@ -159,6 +171,7 @@ func (pfo *ProxyFO) unbanAll() {
 	for _, proxy := range pfo.proxies {
 		if proxy.IsStatus(BANNED) {
 			proxy.ChangeStatusToAvailable()
+			proxy.ResetTotalSuccessCount()
 		}
 	}
 }

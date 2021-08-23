@@ -1,9 +1,10 @@
 package request
 
 import (
-	"github.com/rislah/rBrute/channels"
 	"strings"
 	"sync"
+
+	"github.com/rislah/rBrute/channels"
 
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"

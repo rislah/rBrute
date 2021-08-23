@@ -2,8 +2,9 @@ package rbrute
 
 import (
 	"context"
-	"github.com/rislah/rBrute/channels"
 	"sync"
+
+	"github.com/rislah/rBrute/channels"
 
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"
@@ -12,16 +13,14 @@ import (
 )
 
 type Worker struct {
-	ctx         context.Context
-	status      int
-	logger      *logger.Logger
-	credsStream <-chan *channels.Credentials
-	proxyStream <-chan *channels.Proxy
-	proxyGen    *channels.ProxyFO
-	stages      config.Stages
-	useProxy    bool
+	ctx           context.Context
+	logger        *logger.Logger
+	credsStream   <-chan *channels.Credentials
+	proxyStream   <-chan *channels.Proxy
+	proxyGen      *channels.ProxyFO
+	stages        config.Stages
+	useProxy      bool
 	maxRetryCount int
-	mutex       sync.RWMutex
 }
 
 func NewWorker(

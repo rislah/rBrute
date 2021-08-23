@@ -2,7 +2,6 @@ package request
 
 import (
 	"fmt"
-	"github.com/rislah/rBrute/channels"
 	"io"
 	"io/ioutil"
 	"log"
@@ -10,6 +9,8 @@ import (
 	"net/http/cookiejar"
 	"sync"
 	"time"
+
+	"github.com/rislah/rBrute/channels"
 
 	"github.com/rislah/rBrute/config"
 	"github.com/rislah/rBrute/logger"
@@ -140,8 +141,9 @@ func (r *Runner) sendRequest(request *http.Request) *http.Response {
 		var err error
 		res, err = r.inUseClient.Do(request)
 		if attempt >= 1 {
-			r.logger.PrintStatusChange(r.name, r.inUseCredentials, r.inUseProxy, logger.RETRYING, fmt.Sprintf("TRY %d/%d", attempt, r.retrier.maxRetryCount))
+			r.logger.PrintStatusChange(r.name, r.inUseCredentials, r.inUseProxy, logger.RETRYING, fmt.Sprintf("TRY %d/%d, SUCCESS COUNT: %d", attempt+1, r.retrier.maxRetryCount, r.inUseProxy.GetSuccessCount()))
 		}
+		r.inUseProxy.DecrementTotalSuccessCount()
 		return err
 	})
 	if err != nil {
